@@ -84,7 +84,7 @@ type NoteDuration = number;
  * Note object. Collection of note properties.
  * It extends @NoteMethods (optionals) interface in case you want them
  */
-interface NoteProps {
+export interface NoteProps {
   name: NoteName;
   letter: NoteLetter;
   step: NoteStep;
@@ -223,7 +223,21 @@ const { inc, dec } = MathBase;
 const { isInteger, isNumber } = TypeCheckBase;
 
 const NoteError = CustomError("Note");
-const { EmptyNote } = Theory;
+
+const EmptyNote: NoteProps = {
+  name: "",
+  letter: "C",
+  step: 0,
+  octave: -1,
+  accidental: "",
+  alteration: 0,
+  pc: "",
+  chroma: 0,
+  midi: -1,
+  frequency: -1,
+  color: "",
+  valid: false
+};
 const { lt, leq, eq, neq, gt, geq, cmp, isNegative, inSegment } = RelationsBase;
 const { tokenize, capitalize, substitute } = StringsBase;
 const { either } = BooleanBase;

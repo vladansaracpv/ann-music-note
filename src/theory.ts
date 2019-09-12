@@ -121,18 +121,3 @@ export const BLACK_KEYS = [1, 3, 4, 8, 10];
  *    \s*(?<Trest>.*)
  */
 export const NOTE_REGEX = /^(?<Tletter>[a-gA-G])(?<Taccidental>#{1,}|b{1,}|x{1,}|)(?<Toct>-?\d*)(?<Tduration>(\/(1|2|4|8|16|32|64))?)\s*(?<Trest>.*)$/;
-
-export const EmptyNote: NoteProps = {
-  name: "",
-  letter: "C",
-  step: 0,
-  octave: -1,
-  accidental: "",
-  alteration: 0,
-  pc: "",
-  chroma: 0,
-  midi: -1,
-  frequency: -1,
-  color: "",
-  valid: false
-};
