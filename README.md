@@ -1,1 +1,1 @@
-# My Awesome Greeter
+# Base methods for @ann-music-js project
