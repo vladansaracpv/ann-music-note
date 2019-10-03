@@ -1,14 +1,15 @@
 import * as Theory from "./theory";
-import {
-  ErrorBase,
-  MathBase,
-  TypeCheckBase,
-  RelationsBase,
-  BooleanBase,
-  StringsBase,
-  LogicalBase
-} from "ann-music-base";
+import { Base } from "ann-music-base";
 
+const {
+  Boolean: BooleanBase,
+  Errors: ErrorBase,
+  Logical: LogicalBase,
+  Maths: MathBase,
+  Relations: RelationsBase,
+  Strings: StringsBase,
+  Typings: TypeCheckBase
+} = Base;
 /**
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  *                  NOTE - INTERFACES                      *
@@ -224,6 +225,11 @@ const { isInteger, isNumber } = TypeCheckBase;
 
 const NoteError = CustomError("Note");
 
+const { lt, leq, eq, neq, gt, geq, cmp, isNegative, inSegment } = RelationsBase;
+const { tokenize, capitalize, substitute } = StringsBase;
+const { either } = BooleanBase;
+const { and: both } = LogicalBase;
+
 const EmptyNote: NoteProps = {
   name: "",
   letter: "C",
@@ -238,10 +244,6 @@ const EmptyNote: NoteProps = {
   color: "",
   valid: false
 };
-const { lt, leq, eq, neq, gt, geq, cmp, isNegative, inSegment } = RelationsBase;
-const { tokenize, capitalize, substitute } = StringsBase;
-const { either } = BooleanBase;
-const { and2: both } = LogicalBase;
 
 /**
  * Generate Note static methods
