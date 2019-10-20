@@ -1,1 +1,1 @@
-# Base methods for @ann-music-js project
+# Note methods for @ann-music-js project
