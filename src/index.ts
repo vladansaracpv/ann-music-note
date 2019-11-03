@@ -313,8 +313,8 @@ namespace Transpose {
     return compare === 'midi'
       ? Note(props.midi + by)
       : compare === 'frequency'
-        ? Note(props.frequency + by)
-        : Note(props.pc + (props.octave + by));
+      ? Note(props.frequency + by)
+      : Note(props.pc + (props.octave + by));
   }
 
   export const transposeBy = (note: InitProps): NoteTransposeBy => partial(transpose, note);
