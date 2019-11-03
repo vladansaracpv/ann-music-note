@@ -91,32 +91,6 @@ export type NoteColor = string;
 export type NoteDuration = number;
 
 /**
- * Note object. Collection of note properties.
- * It extends @NoteMethods (optionals) export interface in case you want them
- */
-export interface NoteProps {
-  name: NoteName;
-  letter: NoteLetter;
-  step: NoteStep;
-  octave: NoteOctave;
-  accidental: NoteAccidental;
-  alteration: NoteAlteration;
-  pc: NotePC;
-  chroma: NoteChroma;
-  midi: NoteMidi;
-  frequency: NoteFreq;
-  color: NoteColor;
-  valid: boolean;
-}
-
-export interface NoNote extends Partial<NoteProps> {
-  readonly valid: false;
-  readonly name: '';
-}
-
-export type NoteType = Readonly<NoteProps> | NoNote;
-
-/**
  * Every note property is of @NoteProp type
  */
 export type NoteProp =
@@ -133,22 +107,48 @@ export type NoteProp =
   | NoteColor;
 
 /**
+ * Note object. Collection of note properties.
+ * It extends @NoteMethods (optionals) export interface in case you want them
+ */
+export type NoteProps = Readonly<{
+  name: NoteName;
+  letter: NoteLetter;
+  step: NoteStep;
+  octave: NoteOctave;
+  accidental: NoteAccidental;
+  alteration: NoteAlteration;
+  pc: NotePC;
+  chroma: NoteChroma;
+  midi: NoteMidi;
+  frequency: NoteFreq;
+  color: NoteColor;
+  valid: boolean;
+}>;
+
+/**
+ * Note properties from which the Note object can be constructed
+ */
+
+export type InitProp = NoteName | NoteMidi | NoteFreq;
+
+export type InitProps = InitProp | NoteProps;
+
+export interface NoNote extends Partial<NoteProps> {
+  readonly valid: false;
+  readonly name: '';
+}
+
+/**
  * Note comparison types
  */
 export type NoteComparableProp = 'midi' | 'frequency' | 'chroma' | 'step' | 'octave';
 export type NoteComparableFns = 'ltn' | 'leqn' | 'eqn' | 'neqn' | 'gtn' | 'geqn' | 'cmpn';
 
-export type NoteCompareFn = (
-  note: InitProp | NoteProps,
-  other: InitProp | NoteProps,
-  compare?: NoteComparableProp,
-) => boolean | number;
+export type NoteCompareFn = (note: InitProps, other: InitProps, compare?: NoteComparableProp) => boolean | number;
+export type NoteCompareTo = (other: InitProps, compare?: NoteComparableProp) => boolean | number;
+
 export type NoteCompareFns = Record<NoteComparableFns, NoteCompareFn>;
-
-export type NoteCompareTo = (other: InitProp | NoteProps, compare?: NoteComparableProp) => boolean | number;
 export type NoteCompareToFns = Record<NoteComparableFns, NoteCompareTo>;
-
-export type NoteToComparableFn = (note: NoteProps, other: NoteProps, prop: NoteComparableProp) => NoteProp[];
 
 /**
  * Note transposition types
@@ -156,10 +156,10 @@ export type NoteToComparableFn = (note: NoteProps, other: NoteProps, prop: NoteC
 export type NoteTransposableProp = 'midi' | 'frequency' | 'octave';
 export type NoteTransposableFns = 'transpose';
 
-export type NoteTransposeFn = (note: NoteProps, by: number, key?: NoteTransposableProp) => NoteType;
-export type NoteTransposeFns = Record<NoteTransposableFns, NoteTransposeFn>;
+export type NoteTransposeFn = (note: NoteProps, by: number, key?: NoteTransposableProp) => NoteProps;
+export type NoteTransposeBy = (by: number, key?: NoteTransposableProp) => NoteProps;
 
-export type NoteTransposeBy = (by: number, key?: NoteTransposableProp) => NoteType;
+export type NoteTransposeFns = Record<NoteTransposableFns, NoteTransposeFn>;
 export type NoteTransposeByFns = Record<NoteTransposableFns, NoteTransposeBy>;
 
 /**
@@ -169,32 +169,16 @@ export type NoteDistProp = 'midi' | 'frequency' | 'chroma' | 'step';
 export type NoteDistFns = 'distance';
 
 export type NoteDistanceFn = (note: NoteProps, other: NoteProps, compare?: NoteDistProp) => number;
+export type NoteDistanceTo = (other: InitProps, compare?: NoteDistProp) => number;
+
 export type NoteDistanceFns = Record<NoteDistFns, NoteDistanceFn>;
-
-export type NoteDistanceTo = (other: InitProp | NoteProps, compare?: NoteDistProp) => number;
 export type NoteDistanceToFns = Record<NoteDistFns, NoteDistanceTo>;
-
-/**
- * Note properties from which the Note object can be constructed
- */
-
-export type InitProp = NoteName | NoteMidi | NoteFreq;
-
-export type NoteBuilderProps = Partial<{
-  distance: boolean;
-  transpose: boolean;
-  compare: boolean;
-}>;
 
 export interface InitMethods {
   transpose?: boolean;
   distance?: boolean;
   compare?: boolean;
 }
-
-export type NoteMethods = Partial<NoteTransposeByFns & NoteCompareToFns & NoteDistanceToFns>;
-
-export type Note = NoteType & NoteMethods;
 
 /**
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -256,9 +240,9 @@ namespace Theory {
 
   /**
    * Function to extract note types from @NOTES
-   * @param acc {string}
+   * @param {NoteAccidental} acc
    */
-  export const notes = acc => NOTES.filter(note => acc.indexOf(note[1] || ' ') >= 0);
+  export const notes = (acc: NoteAccidental) => NOTES.filter(note => acc.indexOf(note[1] || ' ') >= 0);
 
   /**
    * 12 standard pitch classes with # used for black keys
@@ -323,6 +307,76 @@ namespace Theory {
   };
 }
 
+namespace Transpose {
+  export function transpose(note: InitProps, by: number, compare: NoteTransposableProp = 'midi'): NoteProps {
+    const props = Note(note);
+    return compare === 'midi'
+      ? Note(props.midi + by)
+      : compare === 'frequency'
+        ? Note(props.frequency + by)
+        : Note(props.pc + (props.octave + by));
+  }
+
+  export const transposeBy = (note: InitProps): NoteTransposeBy => partial(transpose, note);
+}
+
+namespace Distance {
+  export function distance(note: InitProps, other: InitProps, compare: NoteComparableProp = 'midi'): number {
+    const n = Note(note);
+    const o = Note(other);
+    return o[compare] - n[compare];
+  }
+
+  export const distanceTo = (note: InitProps): NoteDistanceTo => partial(distance, note);
+}
+
+namespace Compare {
+  // tslint:disable-next-line: no-shadowed-variable
+  const NoteRelation = (fn: Function): NoteCompareFn => (note, other, compare = 'midi') => {
+    const first = Note(note);
+    const second = Note(other);
+    return fn(first[compare], second[compare]);
+  };
+
+  export const ltn = NoteRelation(lt);
+  export const leqn = NoteRelation(leq);
+  export const eqn = NoteRelation(eq);
+  export const neqn = NoteRelation(neq);
+  export const gtn = NoteRelation(gt);
+  export const geqn = NoteRelation(geq);
+  export const cmpn = NoteRelation(cmp);
+
+  export const compare = {
+    ltn,
+    leqn,
+    eqn,
+    neqn,
+    gtn,
+    geqn,
+    cmpn,
+  };
+
+  export const compareBy = (note: InitProps) => ({
+    ltn: partial(ltn, note) as NoteCompareTo,
+    leqn: partial(leqn, note) as NoteCompareTo,
+    eqn: partial(eqn, note) as NoteCompareTo,
+    neqn: partial(neqn, note) as NoteCompareTo,
+    gtn: partial(gtn, note) as NoteCompareTo,
+    geqn: partial(geqn, note) as NoteCompareTo,
+    cmpn: partial(cmpn, note) as NoteCompareTo,
+  });
+
+  // return {
+  //   ltn: either(partial(ltn, note), ltn, isPartialFn),
+  //   leqn: either(partial(leqn, note), leqn, isPartialFn),
+  //   eqn: either(partial(eqn, note), eqn, isPartialFn),
+  //   neqn: either(partial(neqn, note), neqn, isPartialFn),
+  //   gtn: either(partial(gtn, note), gtn, isPartialFn),
+  //   geqn: either(partial(geqn, note), geqn, isPartialFn),
+  //   cmpn: either(partial(cmpn, note), cmpn, isPartialFn),
+  // };
+}
+
 /**
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  *                 NOTE - STATIC METHODS                   *
@@ -357,13 +411,14 @@ namespace Static {
 
   export const Validators = {
     isChroma: (chroma: NoteChroma): boolean => both(isInteger(chroma), inSegment(0, 11, +chroma)),
-    isFrequency: (freq: InitProp): freq is NoteFreq => both(isNumber(freq), gt(freq, 0)),
+    isFrequency: (freq: InitProps): freq is NoteFreq => isNumber(freq) && gt(freq, 0),
     isKey: (key: string): boolean => Theory.KEYS.includes(key),
-    isMidi: (midi: InitProp): midi is NoteMidi => both(isInteger(midi), inSegment(0, 135, +midi)),
-    isName: (name: InitProp): name is NoteName => REGEX.test(name as string) === true,
+    isMidi: (midi: InitProps): midi is NoteMidi => both(isInteger(midi), inSegment(0, 135, +midi)),
+    isName: (name: InitProps): name is NoteName => REGEX.test(name as string) === true,
+    isNote: (note: any): boolean => Note(note).valid,
   };
 
-  export const property = (prop: NoteProp) => (note: InitProp) => Note(note)[prop];
+  export const property = (prop: NoteProp) => (note: InitProps) => Note(note)[prop];
 
   export function simplify(name: NoteName, keepAccidental = true): NoteName {
     const note = Note(name);
@@ -389,79 +444,31 @@ namespace Static {
   export function enharmonic(note: NoteName): NoteName {
     return simplify(note, false);
   }
-}
 
-namespace Transpose {
-  export function transpose(b: InitProp | NoteProps, n: number, key: NoteTransposableProp = 'midi'): Note {
-    const note = isObject(b) ? b : Note(b as InitProp);
-    return key === 'midi'
-      ? Note(note.midi + n)
-      : key === 'frequency'
-      ? Note(note.frequency + n)
-      : Note(note.pc + (note.octave + n));
+  /**
+   * Note builder
+   * @param {InitProps} prop - note to construct
+   * @param {InitMethods} methods - what methods to include? transpose | distance | compare
+   * @return NoteProps with methods binded to it
+   */
+  export function build(prop: InitProps, methods: InitMethods = {}) {
+    const note = Note(prop);
+
+    if (!note.valid) return Theory.EmptyNote;
+
+    const { transpose, distance, compare } = methods;
+
+    const transposeBy = transpose && Transpose.transposeBy(note);
+    const distanceTo = distance && Distance.distanceTo(note);
+    const compareBy = compare && Compare.compareBy(note);
+
+    return {
+      ...note,
+      distanceTo,
+      transposeBy,
+      ...compareBy,
+    };
   }
-
-  export const transposeBy = (note: InitProp | NoteProps): NoteTransposeBy => partial(transpose, note);
-}
-
-namespace Distance {
-  export function distance(
-    note: InitProp | NoteProps,
-    other: InitProp | NoteProps,
-    compare: NoteComparableProp = 'midi',
-  ): number {
-    const n = isObject(note) ? note : Note(note as InitProp);
-    const o = isObject(other) ? other : Note(other as InitProp);
-    return o[compare] - n[compare];
-  }
-
-  export const distanceTo = (note: InitProp | NoteProps): NoteDistanceTo => partial(distance, note);
-}
-
-namespace Compare {
-  const NoteRelation = (fn: Function): NoteCompareFn => (a, b, c = 'midi') => {
-    const note = isObject(a) ? a : Note(a as InitProp);
-    const other = isObject(b) ? b : Note(b as InitProp);
-    return fn(note[c], other[c]);
-  };
-
-  export const ltn = NoteRelation(lt);
-  export const leqn = NoteRelation(leq);
-  export const eqn = NoteRelation(eq);
-  export const neqn = NoteRelation(neq);
-  export const gtn = NoteRelation(gt);
-  export const geqn = NoteRelation(geq);
-  export const cmpn = NoteRelation(cmp);
-
-  export const compare = {
-    ltn,
-    leqn,
-    eqn,
-    neqn,
-    gtn,
-    geqn,
-    cmpn,
-  };
-
-  export const compareBy = (note: InitProp | NoteProps) => ({
-    ltn: partial(ltn, note) as NoteCompareTo,
-    leqn: partial(leqn, note) as NoteCompareTo,
-    eqn: partial(eqn, note) as NoteCompareTo,
-    neqn: partial(neqn, note) as NoteCompareTo,
-    gtn: partial(gtn, note) as NoteCompareTo,
-    geqn: partial(geqn, note) as NoteCompareTo,
-    cmpn: partial(cmpn, note) as NoteCompareTo,
-  });
-
-  // return {
-  //   ltn: either(partial(ltn, note), ltn, isPartialFn),
-  //   leqn: either(partial(leqn, note), leqn, isPartialFn),
-  //   eqn: either(partial(eqn, note), eqn, isPartialFn),
-  //   neqn: either(partial(neqn, note), neqn, isPartialFn),
-  //   gtn: either(partial(gtn, note), gtn, isPartialFn),
-  //   geqn: either(partial(geqn, note), geqn, isPartialFn),
-  //   cmpn: either(partial(cmpn, note), cmpn, isPartialFn),
-  // };
 }
 
 export const NOTE = {
@@ -474,12 +481,15 @@ export const NOTE = {
 
 /**
  * Note factory function
- * @param {InitProp} prop
- * @param {NoteBuilderProps} initMethods
- * @return {NoteType}
+ * @param {InitProps} src
+ * @param {'midi'|'freq'} midiOrFreq
+ * @return {NoteProps}
  */
-export function Note(prop: InitProp, midiOrFreq = 'midi'): NoteProps {
+export function Note(src: InitProps, midiOrFreq: 'midi' | 'freq' = 'midi'): NoteProps {
   const { isName, isMidi, isFrequency } = NOTE.Validators;
+
+  if (isObject(src) && isName(src.name)) return src;
+
   const { toIndex, toStep } = NOTE.Letter;
   const { toAlteration } = NOTE.Accidental;
   const { toSemitones, parse } = NOTE.Octave;
@@ -514,7 +524,7 @@ export function Note(prop: InitProp, midiOrFreq = 'midi'): NoteProps {
     const octavesAltered = Math.floor(semitonesAltered / 12); // 0
     const octave = parse(Toct) as NoteOctave; // 4
 
-    const pc = (letter + accidental) as NotePC; // A#
+    const pc: NotePC = letter + accidental; // A#
 
     /**
      *  @example
@@ -537,7 +547,7 @@ export function Note(prop: InitProp, midiOrFreq = 'midi'): NoteProps {
 
     const valid = true;
 
-    return Object.freeze({
+    return {
       name,
       letter,
       step,
@@ -550,7 +560,7 @@ export function Note(prop: InitProp, midiOrFreq = 'midi'): NoteProps {
       frequency,
       color,
       valid,
-    });
+    };
   }
 
   function fromMidi(midi: NoteMidi, useSharps = true): NoteProps {
@@ -574,7 +584,7 @@ export function Note(prop: InitProp, midiOrFreq = 'midi'): NoteProps {
 
     const valid = true;
 
-    return Object.freeze({
+    return {
       accidental,
       alteration,
       chroma,
@@ -587,7 +597,7 @@ export function Note(prop: InitProp, midiOrFreq = 'midi'): NoteProps {
       pc,
       step,
       valid,
-    });
+    };
   }
 
   function fromFrequency(frequency: NoteFreq, tuning = Theory.A_440): NoteProps {
@@ -595,35 +605,9 @@ export function Note(prop: InitProp, midiOrFreq = 'midi'): NoteProps {
     return fromMidi(midi);
   }
 
-  if (isName(prop)) return fromName(prop);
-  if (isMidi(prop) && midiOrFreq === 'midi') return fromMidi(prop) as NoteProps;
-  if (isFrequency(prop)) return fromFrequency(prop) as NoteProps;
+  if (isName(src)) return fromName(src);
+  if (isMidi(src) && midiOrFreq === 'midi') return fromMidi(src) as NoteProps;
+  if (isFrequency(src)) return fromFrequency(src) as NoteProps;
 
   return EmptyNote as NoteProps;
-}
-
-/**
- * Note builder
- * @param {InitProp | NoteProps} prop - note to construct
- * @param {InitMethods} methods - what methods to include? transpose | distance | compare
- * @return NoteProps with methods binded to it
- */
-export function NoteBuilder(prop: InitProp | NoteProps, methods: InitMethods) {
-  const { EmptyNote } = Theory;
-  const note = (isObject(prop) ? prop : Note(prop)) as NoteProps;
-
-  if (!note.valid) return EmptyNote;
-
-  const { transpose, distance, compare } = methods;
-
-  const transposeBy = transpose && Transpose.transposeBy(note);
-  const distanceTo = distance && Distance.distanceTo(note);
-  const compareBy = compare && Compare.compareBy(note);
-
-  return {
-    ...note,
-    distanceTo,
-    transposeBy,
-    ...compareBy,
-  };
 }
