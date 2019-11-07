@@ -10,9 +10,9 @@ import {
 
 const { both, either } = BaseBoolean;
 const { CustomError } = BaseErrors;
-const { partial } = BaseFunctional;
+const { curry } = BaseFunctional;
 const { dec, inc } = BaseMaths;
-const { cmp, eq, geq, gt, inSegment, isNegative, isPositive, leq, lt, neq } = BaseRelations;
+const { eq, geq, gt, inSegment, isNegative, isPositive, leq, lt, neq } = BaseRelations;
 const { capitalize, substitute, tokenize } = BaseStrings;
 const { isInteger, isNumber, isObject } = BaseTypings;
 
@@ -142,7 +142,7 @@ export interface NoNote extends Partial<NoteProps> {
  * Note comparison types
  */
 export type NoteComparableProp = 'midi' | 'frequency' | 'chroma' | 'step' | 'octave';
-export type NoteComparableFns = 'ltn' | 'leqn' | 'eqn' | 'neqn' | 'gtn' | 'geqn' | 'cmpn';
+export type NoteComparableFns = 'lt' | 'leq' | 'eq' | 'neq' | 'gt' | 'geq';
 
 export type NoteCompareFn = (note: InitProps, other: InitProps, compare?: NoteComparableProp) => boolean | number;
 export type NoteCompareTo = (other: InitProps, compare?: NoteComparableProp) => boolean | number;
@@ -178,6 +178,27 @@ export interface InitMethods {
   transpose?: boolean;
   distance?: boolean;
   compare?: boolean;
+}
+
+export interface Transposable {
+  value: number;
+  prop?: NoteTransposableProp;
+}
+
+interface CurriedNoteTransposable {
+  (by: Transposable, note: InitProp): number;
+  (by: Transposable, note?: InitProp): (note: InitProp) => number;
+}
+interface CurriedNoteDistance {
+  (note: InitProps, other: InitProps, compare: NoteComparableProp): number;
+  (note: InitProps, other: InitProps): (compare: NoteComparableProp) => number;
+  (note: InitProps): (other: InitProps, compare: NoteComparableProp) => number;
+}
+interface CurriedNoteCompare {
+  (fn: NoteComparableFns, note: InitProps, other: InitProps, compare: NoteComparableProp): boolean;
+  (fn: NoteComparableFns, note: InitProps, other: InitProps): (compare: NoteComparableProp) => boolean;
+  (fn: NoteComparableFns, note: InitProps): (other: InitProps, compare: NoteComparableProp) => boolean;
+  (fn: NoteComparableFns): (note: InitProps, other: InitProps, compare: NoteComparableProp) => boolean;
 }
 
 /**
@@ -307,76 +328,6 @@ namespace Theory {
   };
 }
 
-namespace Transpose {
-  export function transpose(note: InitProps, by: number, compare: NoteTransposableProp = 'midi'): NoteProps {
-    const props = Note(note);
-    return compare === 'midi'
-      ? Note(props.midi + by)
-      : compare === 'frequency'
-      ? Note(props.frequency + by)
-      : Note(props.pc + (props.octave + by));
-  }
-
-  export const transposeBy = (note: InitProps): NoteTransposeBy => partial(transpose, note);
-}
-
-namespace Distance {
-  export function distance(note: InitProps, other: InitProps, compare: NoteComparableProp = 'midi'): number {
-    const n = Note(note);
-    const o = Note(other);
-    return o[compare] - n[compare];
-  }
-
-  export const distanceTo = (note: InitProps): NoteDistanceTo => partial(distance, note);
-}
-
-namespace Compare {
-  // tslint:disable-next-line: no-shadowed-variable
-  const NoteRelation = (fn: Function): NoteCompareFn => (note, other, compare = 'midi') => {
-    const first = Note(note);
-    const second = Note(other);
-    return fn(first[compare], second[compare]);
-  };
-
-  export const ltn = NoteRelation(lt);
-  export const leqn = NoteRelation(leq);
-  export const eqn = NoteRelation(eq);
-  export const neqn = NoteRelation(neq);
-  export const gtn = NoteRelation(gt);
-  export const geqn = NoteRelation(geq);
-  export const cmpn = NoteRelation(cmp);
-
-  export const compare = {
-    ltn,
-    leqn,
-    eqn,
-    neqn,
-    gtn,
-    geqn,
-    cmpn,
-  };
-
-  export const compareBy = (note: InitProps) => ({
-    ltn: partial(ltn, note) as NoteCompareTo,
-    leqn: partial(leqn, note) as NoteCompareTo,
-    eqn: partial(eqn, note) as NoteCompareTo,
-    neqn: partial(neqn, note) as NoteCompareTo,
-    gtn: partial(gtn, note) as NoteCompareTo,
-    geqn: partial(geqn, note) as NoteCompareTo,
-    cmpn: partial(cmpn, note) as NoteCompareTo,
-  });
-
-  // return {
-  //   ltn: either(partial(ltn, note), ltn, isPartialFn),
-  //   leqn: either(partial(leqn, note), leqn, isPartialFn),
-  //   eqn: either(partial(eqn, note), eqn, isPartialFn),
-  //   neqn: either(partial(neqn, note), neqn, isPartialFn),
-  //   gtn: either(partial(gtn, note), gtn, isPartialFn),
-  //   geqn: either(partial(geqn, note), geqn, isPartialFn),
-  //   cmpn: either(partial(cmpn, note), cmpn, isPartialFn),
-  // };
-}
-
 /**
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  *                 NOTE - STATIC METHODS                   *
@@ -458,25 +409,53 @@ namespace Static {
 
     const { transpose, distance, compare } = methods;
 
-    const transposeBy = transpose && Transpose.transposeBy(note);
-    const distanceTo = distance && Distance.distanceTo(note);
-    const compareBy = compare && Compare.compareBy(note);
+    // const transposeBy = transpose && Transpose.transposeBy(note);
+    // const distanceTo = distance && Distance.distanceTo(note);
+    // const compareBy = compare && Compare.compareBy(note);
 
     return {
       ...note,
-      distanceTo,
-      transposeBy,
-      ...compareBy,
+      // distanceTo,
+      // transposeBy,
+      // ...compareBy,
     };
+  }
+
+  export const Transpose: CurriedNoteTransposable = curry(NoteTranspose);
+
+  export const Distance: CurriedNoteDistance = curry(NoteDistance);
+
+  export const Compare: CurriedNoteCompare = curry(NoteCompare);
+
+  function NoteTranspose(by: Transposable = { value: 1, prop: 'midi' }, note?: InitProp) {
+    const { value, prop } = by;
+    const { midi, frequency, pc, octave } = Note(note);
+
+    if (eq(prop, 'frequency')) return Note(frequency + value, 'freq');
+
+    if (eq(prop, 'octave')) return Note(pc + (octave + value));
+
+    return Note(midi + value, 'midi');
+  }
+
+  function NoteDistance(note: InitProps, other?: InitProps, compare?: NoteComparableProp) {
+    const n = Note(note);
+    const o = Note(other);
+    return (o[compare] - n[compare]) as number;
+  }
+
+  function NoteCompare(f: NoteComparableFns, note: InitProps, other: InitProps, compare: NoteComparableProp) {
+    const CompareFn = { lt, leq, eq, neq, gt, geq };
+    const fn = CompareFn[f];
+    const first = Note(note);
+    const second = Note(other);
+    return fn(first[compare], second[compare]);
   }
 }
 
 export const NOTE = {
   ...Theory,
   ...Static,
-  ...Compare.compare,
-  transpose: Transpose.transpose,
-  distance: Distance.distance,
 };
 
 /**
