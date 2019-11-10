@@ -235,11 +235,6 @@ namespace Theory {
   export const A4_KEY = 69;
 
   /**
-   * Number of tones in octave
-   */
-  export const OCT_RANGE = 12;
-
-  /**
    * Default octave value used if no octave given
    */
   export const OCTAVE = 4;
@@ -261,32 +256,37 @@ namespace Theory {
 
   /**
    * Function to extract note types from @NOTES
-   * @param {NoteAccidental} acc
+   * @param {NoteAccidental} accidental
    */
-  export const notes = (acc: NoteAccidental) => NOTES.filter(note => acc.indexOf(note[1] || ' ') >= 0);
+  export const notes = (accidental: NoteAccidental) => NOTES.filter(note => accidental.includes(note[1] || ' '));
 
   /**
    * 12 standard pitch classes with # used for black keys
+   * => [C, C#, D, D#, E, F#, G, G#, A, A#, B]
    */
   export const SHARPS = notes('# ');
 
   /**
    * 12 standard pitch classes with b used for black keys
+   * => [C, Db, D, Eb, E, Gb, G, Ab, A, Bb, B]
    */
   export const FLATS = notes('b ');
 
   /**
    * Only the white keys (natural notes)
+   * => [C, D, E, F, G, A, B]
    */
   export const NATURAL = notes(' ');
 
   /**
    * Only black keys (sharps)
+   * => [C#, D#, F#, G#, A#]
    */
   export const SHARP = notes('#');
 
   /**
    * Only black keys (flats)
+   * => [Db, Eb, Gb, Ab, Bb]
    */
   export const FLAT = notes('b');
 
@@ -350,7 +350,7 @@ namespace Static {
   };
 
   export const Letter = {
-    toIndex: (letter: NoteLetter) => Theory.SHARPS.indexOf(letter),
+    toIndex: (letter: NoteLetter) => SHARPS.indexOf(letter),
     toStep: (letter: NoteLetter) => (letter.charCodeAt(0) + 3) % 7,
   };
 
@@ -367,6 +367,15 @@ namespace Static {
     isMidi: (midi: InitProps): midi is NoteMidi => both(isInteger(midi), inSegment(0, 135, +midi)),
     isName: (name: InitProps): name is NoteName => REGEX.test(name as string) === true,
     isNote: (note: any): boolean => Note(note).valid,
+  };
+
+  export const Chroma = {
+    isWhite(chroma: NoteChroma) {
+      return Theory.WHITE_KEYS.includes(chroma);
+    },
+    isBlack(chroma: NoteChroma) {
+      return Theory.BLACK_KEYS.includes(chroma);
+    },
   };
 
   export const property = (prop: NoteProp) => (note: InitProps) => Note(note)[prop];
@@ -464,7 +473,8 @@ export const NOTE = {
  * @param {'midi'|'freq'} midiOrFreq
  * @return {NoteProps}
  */
-export function Note(src: InitProps, midiOrFreq: 'midi' | 'freq' = 'midi'): NoteProps {
+export type MidiOrFreq = 'midi' | 'freq';
+export function Note(src: InitProps, midiOrFreq: MidiOrFreq = 'midi', sharps = true): NoteProps {
   const { isName, isMidi, isFrequency } = NOTE.Validators;
 
   if (isObject(src) && isName(src.name)) return src;
@@ -474,7 +484,8 @@ export function Note(src: InitProps, midiOrFreq: 'midi' | 'freq' = 'midi'): Note
   const { toSemitones, parse } = NOTE.Octave;
   const { toFrequency, toOctaves } = NOTE.Midi;
   const { toMidi } = NOTE.Frequency;
-  const { EmptyNote, WHITE_KEYS, REGEX } = Theory;
+  const { isWhite } = NOTE.Chroma;
+  const { EmptyNote, SHARPS, FLATS, REGEX } = Theory;
 
   function fromName(note: NoteName): NoteProps {
     const { Tletter, Taccidental, Toct, Trest } = {
@@ -485,25 +496,28 @@ export function Note(src: InitProps, midiOrFreq: 'midi' | 'freq' = 'midi'): Note
       ...tokenize(note, REGEX),
     };
 
-    if (Trest) return NoteError('InvalidConstructor', { name: note }, EmptyNote);
+    if (Trest || !Tletter) {
+      return NoteError('InvalidConstructor', note, EmptyNote);
+    }
 
-    const letter = capitalize(Tletter) as NoteLetter; // A
-    const step = toStep(letter) as NoteStep; // 5
+    const letter = capitalize(Tletter) as NoteLetter;
+    const step = toStep(letter) as NoteStep;
 
-    const accidental = substitute(Taccidental, /x/g, '##') as NoteAccidental; // #
-    const alteration = toAlteration(accidental) as NoteAlteration; // +1
+    const accidental = substitute(Taccidental, /x/g, '##') as NoteAccidental;
+    const alteration = toAlteration(accidental) as NoteAlteration;
 
     // Offset (number of keys) from first letter - C
-    const offset = toIndex(letter); // 10
+    const offset = toIndex(letter);
 
     // Note position is calculated as: letter offset from the start + in place alteration
-    const semitonesAltered = offset + alteration; // 11
+    const semitonesAltered = offset + alteration;
 
     // Because of the alteration, note can slip into the previous/next octave
-    const octavesAltered = Math.floor(semitonesAltered / 12); // 0
-    const octave = parse(Toct) as NoteOctave; // 4
+    const octavesAltered = Math.floor(semitonesAltered / 12);
 
-    const pc: NotePC = letter + accidental; // A#
+    const octave = (parse(Toct) + octavesAltered) as NoteOctave;
+
+    const pc: NotePC = `${letter}${accidental}`;
 
     /**
      *  @example
@@ -515,26 +529,27 @@ export function Note(src: InitProps, midiOrFreq: 'midi' | 'freq' = 'midi'): Note
       (semitonesAltered - toSemitones(octavesAltered) + 12) % 12,
       semitonesAltered % 12,
       isNegative(octavesAltered),
-    ) as NoteChroma; // 10
+    ) as NoteChroma;
 
-    const midi = (toSemitones(octave + octavesAltered) + chroma) as NoteMidi; // 70
-    const frequency = toFrequency(midi) as NoteFreq; // 466.164
+    const midi = (toSemitones(octave) + chroma) as NoteMidi;
 
-    const name = (pc + octave) as NoteName; // A#4
+    const frequency = toFrequency(midi) as NoteFreq;
 
-    const color = either('white', 'black', WHITE_KEYS.includes(chroma)) as NoteColor; // 'black'
+    const name = `${pc}${octave}` as NoteName;
+
+    const color: NoteColor = isWhite(chroma) ? 'white' : 'black';
 
     const valid = true;
 
     return {
-      name,
       letter,
       step,
       accidental,
       alteration,
-      octave,
       pc,
       chroma,
+      name,
+      octave,
       midi,
       frequency,
       color,
@@ -542,41 +557,15 @@ export function Note(src: InitProps, midiOrFreq: 'midi' | 'freq' = 'midi'): Note
     };
   }
 
-  function fromMidi(midi: NoteMidi, useSharps = true): NoteProps {
-    const frequency = toFrequency(midi) as NoteFreq;
+  function fromMidi(midi: NoteMidi, useSharps = sharps): NoteProps {
     const octave = dec(toOctaves(midi)) as NoteOctave;
 
-    const chroma = (midi - toSemitones(octave)) as NoteChroma;
-    const pc = either(Theory.SHARPS[chroma], Theory.FLATS[chroma], useSharps) as NotePC;
+    const chroma = (midi % 12) as NoteChroma;
+    const pc = either(SHARPS[chroma], FLATS[chroma], useSharps) as NotePC;
 
-    const name = (pc + octave) as NoteName;
+    const name = `${pc}${octave}` as NoteName;
 
-    const { Tletter, Taccidental } = { Taccidental: '', Tletter: '', ...tokenize(name, REGEX) };
-
-    const letter = capitalize(Tletter) as NoteLetter;
-    const step = toStep(letter) as NoteStep;
-
-    const accidental = substitute(Taccidental, /x/g, '##') as NoteAccidental;
-    const alteration = toAlteration(accidental) as NoteAlteration;
-
-    const color = either('white', 'black', WHITE_KEYS.includes(chroma)) as NoteColor;
-
-    const valid = true;
-
-    return {
-      accidental,
-      alteration,
-      chroma,
-      color,
-      frequency,
-      letter,
-      midi,
-      name,
-      octave,
-      pc,
-      step,
-      valid,
-    };
+    return fromName(name);
   }
 
   function fromFrequency(frequency: NoteFreq, tuning = Theory.A_440): NoteProps {
@@ -588,5 +577,6 @@ export function Note(src: InitProps, midiOrFreq: 'midi' | 'freq' = 'midi'): Note
   if (isMidi(src) && midiOrFreq === 'midi') return fromMidi(src) as NoteProps;
   if (isFrequency(src)) return fromFrequency(src) as NoteProps;
 
-  return EmptyNote as NoteProps;
+  // return EmptyNote as NoteProps;
+  return NoteError('InvalidConstructor', src, EmptyNote);
 }
