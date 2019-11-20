@@ -201,6 +201,14 @@ interface CurriedNoteCompare {
   (fn: NoteComparableFns): (note: InitProps, other: InitProps, compare: NoteComparableProp) => boolean;
 }
 
+export type NoteInit = Partial<{
+  name?: NoteName;
+  midi?: NoteMidi;
+  frequency?: NoteFreq;
+  sharps?: boolean;
+  tuning?: number;
+}>;
+
 /**
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  *                 NOTE - THEORY CONSTANTS                 *
@@ -378,10 +386,10 @@ namespace Static {
     },
   };
 
-  export const property = (prop: NoteProp) => (note: InitProps) => Note(note)[prop];
+  export const property = (prop: NoteProp) => (note: NoteInit) => Note(note)[prop];
 
   export function simplify(name: NoteName, keepAccidental = true): NoteName {
-    const note = Note(name);
+    const note = Note({ name });
 
     if (!note) return undefined;
 
@@ -411,7 +419,7 @@ namespace Static {
    * @param {InitMethods} methods - what methods to include? transpose | distance | compare
    * @return NoteProps with methods binded to it
    */
-  export function build(prop: InitProps, methods: InitMethods = {}) {
+  export function build(prop: NoteInit, methods: InitMethods = {}) {
     const note = Note(prop);
 
     if (!note.valid) return Theory.EmptyNote;
@@ -436,24 +444,24 @@ namespace Static {
 
   export const Compare: CurriedNoteCompare = curry(NoteCompare);
 
-  function NoteTranspose(by: Transposable = { value: 1, prop: 'midi' }, note?: InitProp) {
+  function NoteTranspose(by: Transposable = { value: 1, prop: 'midi' }, note?: NoteInit) {
     const { value, prop } = by;
     const { midi, frequency, pc, octave } = Note(note);
 
-    if (eq(prop, 'frequency')) return Note(frequency + value, 'freq');
+    if (eq(prop, 'frequency')) return Note({ frequency: frequency + value });
 
-    if (eq(prop, 'octave')) return Note(pc + (octave + value));
+    if (eq(prop, 'octave')) return Note({ name: pc + (octave + value) });
 
-    return Note(midi + value, 'midi');
+    return Note({ midi: midi + value });
   }
 
-  function NoteDistance(note: InitProps, other?: InitProps, compare?: NoteComparableProp) {
+  function NoteDistance(note: NoteInit, other?: NoteInit, compare?: NoteComparableProp) {
     const n = Note(note);
     const o = Note(other);
     return (o[compare] - n[compare]) as number;
   }
 
-  function NoteCompare(f: NoteComparableFns, note: InitProps, other: InitProps, compare: NoteComparableProp) {
+  function NoteCompare(f: NoteComparableFns, note: NoteInit, other: NoteInit, compare: NoteComparableProp) {
     const CompareFn = { lt, leq, eq, neq, gt, geq };
     const fn = CompareFn[f];
     const first = Note(note);
@@ -467,17 +475,8 @@ export const NOTE = {
   ...Static,
 };
 
-/**
- * Note factory function
- * @param {InitProps} src
- * @param {'midi'|'freq'} midiOrFreq
- * @return {NoteProps}
- */
-export type MidiOrFreq = 'midi' | 'freq';
-export function Note(src: InitProps, midiOrFreq: MidiOrFreq = 'midi', sharps = true): NoteProps {
+export function Note({ name, midi, frequency, sharps = true, tuning = 440 }: NoteInit = {}): NoteProps {
   const { isName, isMidi, isFrequency } = NOTE.Validators;
-
-  if (isObject(src) && isName(src.name)) return src;
 
   const { toIndex, toStep } = NOTE.Letter;
   const { toAlteration } = NOTE.Accidental;
@@ -557,7 +556,7 @@ export function Note(src: InitProps, midiOrFreq: MidiOrFreq = 'midi', sharps = t
     };
   }
 
-  function fromMidi(midi: NoteMidi, useSharps = sharps): NoteProps {
+  function fromMidi(midi: NoteMidi, useSharps = true): NoteProps {
     const octave = dec(toOctaves(midi)) as NoteOctave;
 
     const chroma = (midi % 12) as NoteChroma;
@@ -568,15 +567,15 @@ export function Note(src: InitProps, midiOrFreq: MidiOrFreq = 'midi', sharps = t
     return fromName(name);
   }
 
-  function fromFrequency(frequency: NoteFreq, tuning = Theory.A_440): NoteProps {
+  function fromFrequency(frequency: NoteFreq, useSharps = true, tuning = Theory.A_440): NoteProps {
     const midi = toMidi(frequency, tuning);
-    return fromMidi(midi);
+    return fromMidi(midi, useSharps);
   }
 
-  if (isName(src)) return fromName(src);
-  if (isMidi(src) && midiOrFreq === 'midi') return fromMidi(src) as NoteProps;
-  if (isFrequency(src)) return fromFrequency(src) as NoteProps;
+  if (isName(name)) return fromName(name);
+  if (isMidi(midi)) return fromMidi(midi, sharps) as NoteProps;
+  if (isFrequency(frequency)) return fromFrequency(frequency, sharps, tuning) as NoteProps;
 
   // return EmptyNote as NoteProps;
-  return NoteError('InvalidConstructor', src, EmptyNote);
+  return NoteError('InvalidConstructor', { name, midi, frequency }, EmptyNote);
 }
