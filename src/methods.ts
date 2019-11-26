@@ -3,6 +3,7 @@
  *                 NOTE - STATIC METHODS                   *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  */
+
 import { BaseBoolean, BaseFunctional, BaseMaths, BaseRelations, BaseTypings } from 'ann-music-base';
 
 import {
@@ -31,13 +32,13 @@ import { Note } from './properties';
 
 const { both, either } = BaseBoolean;
 const { curry } = BaseFunctional;
-const { inc } = BaseMaths;
-const { eq, geq, gt, inSegment, isNegative, isPositive, leq, lt, neq } = BaseRelations;
-const { isInteger, isNumber, isObject } = BaseTypings;
+const { inc, sub, div } = BaseMaths;
+const { eq, geq, gt, inSegment, isPositive, leq, lt, neq } = BaseRelations;
+const { isInteger, isNumber } = BaseTypings;
 
 export const Midi = {
-  toFrequency: (midi: NoteMidi, tuning = A_440): NoteFreq => 2 ** ((midi - A4_KEY) / 12) * tuning,
-  toOctaves: (midi: NoteMidi) => Math.floor(midi / 12),
+  toFrequency: (midi: NoteMidi, tuning = A_440): NoteFreq => 2 ** div(sub(midi, A4_KEY), 12) * tuning,
+  toOctaves: (midi: NoteMidi) => Math.floor(midi / 12) - 1,
 };
 
 export const Frequency = {
@@ -54,8 +55,7 @@ export const Letter = {
 };
 
 export const Octave = {
-  parse: (octave?: string): NoteOctave =>
-    either(Number.parseInt(octave, 10), 4, isInteger(Number.parseInt(octave, 10))),
+  parse: (octave?: string): NoteOctave => (isInteger(Number.parseInt(octave, 10)) ? Number.parseInt(octave, 10) : 4),
   toSemitones: (octave: number) => 12 * inc(octave),
 };
 
@@ -102,31 +102,6 @@ export function simplify(name: NoteName, keepAccidental = true): NoteName {
 
 export function enharmonic(note: NoteName): NoteName {
   return simplify(note, false);
-}
-
-/**
- * Note builder
- * @param {InitProps} prop - note to construct
- * @param {InitMethods} methods - what methods to include? transpose | distance | compare
- * @return NoteProps with methods binded to it
- */
-export function build(prop: NoteInit, methods: InitMethods = {}) {
-  const note = Note(prop);
-
-  if (!note.valid) return EmptyNote;
-
-  const { transpose, distance, compare } = methods;
-
-  // const transposeBy = transpose && Transpose.transposeBy(note);
-  // const distanceTo = distance && Distance.distanceTo(note);
-  // const compareBy = compare && Compare.compareBy(note);
-
-  return {
-    ...note,
-    // distanceTo,
-    // transposeBy,
-    // ...compareBy,
-  };
 }
 
 export const Transpose: CurriedNoteTransposable = curry(NoteTranspose);
