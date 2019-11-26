@@ -1,4 +1,4 @@
-import { BaseBoolean, BaseErrors, BaseMaths, BaseRelations, BaseStrings } from 'ann-music-base';
+import { BaseBoolean, BaseErrors, BaseRelations, BaseStrings } from 'ann-music-base';
 
 import {
   NoteName,
@@ -21,7 +21,6 @@ import { Validators, Letter, Accidental, Octave, Midi, Frequency, Chroma } from 
 
 const { either } = BaseBoolean;
 const { CustomError } = BaseErrors;
-const { dec } = BaseMaths;
 const { isNegative } = BaseRelations;
 const { capitalize, substitute, tokenize } = BaseStrings;
 

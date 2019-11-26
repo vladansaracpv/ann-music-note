@@ -105,103 +105,11 @@ export type NoteProps = Readonly<{
   valid: boolean;
 }>;
 
-// const a = {
-//   name: 'A#4',
-//   octave: 4,
-//   tone: {
-//     letter: 'A',
-//     step: 5,
-//   },
-//   accidental: {
-//     type: '#',
-//     value: 1,
-//   },
-//   pc: {
-//     type: 'A#',
-//     value: 10,
-//   },
-//   midi: 70,
-//   frequency: 466.164,
-//   color: 'black',
-//   valid: true,
-// };
+export type NoteComparableFns = 'lt' | 'leq' | 'eq' | 'neq' | 'gt' | 'geq';
 
 /**
  * Note properties from which the Note object can be constructed
  */
-
-export type InitProp = NoteName | NoteMidi | NoteFreq;
-
-export type InitProps = InitProp | NoteProps;
-
-export interface NoNote extends Partial<NoteProps> {
-  readonly valid: false;
-  readonly name: '';
-}
-
-/**
- * Note comparison types
- */
-export type NoteComparableProp = 'midi' | 'frequency' | 'chroma' | 'step' | 'octave';
-export type NoteComparableFns = 'lt' | 'leq' | 'eq' | 'neq' | 'gt' | 'geq';
-
-export type NoteCompareFn = (note: InitProps, other: InitProps, compare?: NoteComparableProp) => boolean | number;
-export type NoteCompareTo = (other: InitProps, compare?: NoteComparableProp) => boolean | number;
-
-export type NoteCompareFns = Record<NoteComparableFns, NoteCompareFn>;
-export type NoteCompareToFns = Record<NoteComparableFns, NoteCompareTo>;
-
-/**
- * Note transposition types
- */
-export type NoteTransposableProp = 'midi' | 'frequency' | 'octave';
-export type NoteTransposableFns = 'transpose';
-
-export type NoteTransposeFn = (note: NoteProps, by: number, key?: NoteTransposableProp) => NoteProps;
-export type NoteTransposeBy = (by: number, key?: NoteTransposableProp) => NoteProps;
-
-export type NoteTransposeFns = Record<NoteTransposableFns, NoteTransposeFn>;
-export type NoteTransposeByFns = Record<NoteTransposableFns, NoteTransposeBy>;
-
-/**
- * Note distance types
- */
-export type NoteDistProp = 'midi' | 'frequency' | 'chroma' | 'step';
-export type NoteDistFns = 'distance';
-
-export type NoteDistanceFn = (note: NoteProps, other: NoteProps, compare?: NoteDistProp) => number;
-export type NoteDistanceTo = (other: InitProps, compare?: NoteDistProp) => number;
-
-export type NoteDistanceFns = Record<NoteDistFns, NoteDistanceFn>;
-export type NoteDistanceToFns = Record<NoteDistFns, NoteDistanceTo>;
-
-export interface InitMethods {
-  transpose?: boolean;
-  distance?: boolean;
-  compare?: boolean;
-}
-
-export interface Transposable {
-  value: number;
-  prop?: NoteTransposableProp;
-}
-
-export interface CurriedNoteTransposable {
-  (by: Transposable, note: InitProp): number;
-  (by: Transposable, note?: InitProp): (note: InitProp) => number;
-}
-export interface CurriedNoteDistance {
-  (note: InitProps, other: InitProps, compare: NoteComparableProp): number;
-  (note: InitProps, other: InitProps): (compare: NoteComparableProp) => number;
-  (note: InitProps): (other: InitProps, compare: NoteComparableProp) => number;
-}
-export interface CurriedNoteCompare {
-  (fn: NoteComparableFns, note: InitProps, other: InitProps, compare: NoteComparableProp): boolean;
-  (fn: NoteComparableFns, note: InitProps, other: InitProps): (compare: NoteComparableProp) => boolean;
-  (fn: NoteComparableFns, note: InitProps): (other: InitProps, compare: NoteComparableProp) => boolean;
-  (fn: NoteComparableFns): (note: InitProps, other: InitProps, compare: NoteComparableProp) => boolean;
-}
-
 export type NoteInit = Partial<{
   name?: NoteName;
   midi?: NoteMidi;

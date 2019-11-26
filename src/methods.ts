@@ -4,7 +4,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  */
 
-import { BaseBoolean, BaseFunctional, BaseMaths, BaseRelations, BaseTypings } from 'ann-music-base';
+import { BaseBoolean, BaseMaths, BaseRelations, BaseTypings } from 'ann-music-base';
 
 import {
   NoteName,
@@ -14,27 +14,20 @@ import {
   NoteLetter,
   NoteOctave,
   NoteChroma,
-  InitProps,
   NoteInit,
   NoteProp,
-  InitMethods,
-  Transposable,
-  NoteComparableProp,
   NoteComparableFns,
-  CurriedNoteDistance,
-  CurriedNoteCompare,
-  CurriedNoteTransposable,
 } from './types';
 
-import { A_440, A4_KEY, REGEX, SHARPS, FLATS, KEYS, WHITE_KEYS, BLACK_KEYS, EmptyNote } from './theory';
+import { A_440, A4_KEY, REGEX, SHARPS, FLATS, KEYS, WHITE_KEYS, BLACK_KEYS } from './theory';
 
 import { Note } from './properties';
 
 const { both, either } = BaseBoolean;
-const { curry } = BaseFunctional;
 const { inc, sub, div } = BaseMaths;
 const { eq, geq, gt, inSegment, isPositive, leq, lt, neq } = BaseRelations;
 const { isInteger, isNumber } = BaseTypings;
+const CompareFn = { lt, leq, eq, neq, gt, geq };
 
 export const Midi = {
   toFrequency: (midi: NoteMidi, tuning = A_440): NoteFreq => 2 ** div(sub(midi, A4_KEY), 12) * tuning,
@@ -61,10 +54,10 @@ export const Octave = {
 
 export const Validators = {
   isChroma: (chroma: NoteChroma): boolean => both(isInteger(chroma), inSegment(0, 11, +chroma)),
-  isFrequency: (freq: InitProps): freq is NoteFreq => isNumber(freq) && gt(freq, 0),
+  isFrequency: (freq: any): freq is NoteFreq => isNumber(freq) && gt(freq, 0),
   isKey: (key: string): boolean => KEYS.includes(key),
-  isMidi: (midi: InitProps): midi is NoteMidi => both(isInteger(midi), inSegment(0, 135, +midi)),
-  isName: (name: InitProps): name is NoteName => REGEX.test(name as string) === true,
+  isMidi: (midi: any): midi is NoteMidi => both(isInteger(midi), inSegment(0, 135, +midi)),
+  isName: (name: any): name is NoteName => REGEX.test(name as string) === true,
   isNote: (note: any): boolean => Note(note).valid,
 };
 
@@ -74,6 +67,63 @@ export const Chroma = {
   },
   isBlack(chroma: NoteChroma) {
     return BLACK_KEYS.includes(chroma);
+  },
+};
+
+export const Transpose = {
+  byMidi: (m: NoteMidi) => (note: NoteInit) => {
+    const n = Note(note);
+    return Note({ midi: n.midi + m });
+  },
+  byFrequency: (f: NoteFreq) => (note: NoteInit) => {
+    const n = Note(note);
+    return Note({ frequency: n.frequency + f });
+  },
+  byOctave: (o: NoteOctave) => (note: NoteInit) => {
+    const n = Note(note);
+    return Note({ name: n.pc + (n.octave + o) });
+  },
+};
+
+export const Distance = {
+  byMidi: (m: NoteMidi) => (note: NoteInit, other: NoteInit) => {
+    const [n, o] = [Note(note), Note(other)];
+    return o.midi - n.midi;
+  },
+  byFrequency: (f: NoteFreq) => (note: NoteInit, other: NoteInit) => {
+    const [n, o] = [Note(note), Note(other)];
+    return o.frequency - n.frequency;
+  },
+  byChroma: (c: NoteChroma) => (note: NoteInit, other: NoteInit) => {
+    const [n, o] = [Note(note), Note(other)];
+    return o.chroma - n.chroma;
+  },
+  byOctave: (o: NoteOctave) => (note: NoteInit, other: NoteInit) => {
+    const [n, o] = [Note(note), Note(other)];
+    return o.octave - n.octave;
+  },
+};
+
+export const Compare = {
+  byMidi: (fn: NoteComparableFns) => (note: NoteInit, other: NoteInit) => {
+    const [n, o] = [Note(note), Note(other)];
+    const f = CompareFn[fn];
+    return f(n.midi, o.midi);
+  },
+  byFrequency: (fn: NoteComparableFns) => (note: NoteInit, other: NoteInit) => {
+    const [n, o] = [Note(note), Note(other)];
+    const f = CompareFn[fn];
+    return f(n.frequency, o.frequency);
+  },
+  byChroma: (fn: NoteComparableFns) => (note: NoteInit, other: NoteInit) => {
+    const [n, o] = [Note(note), Note(other)];
+    const f = CompareFn[fn];
+    return f(n.chroma, o.chroma);
+  },
+  byOctave: (fn: NoteComparableFns) => (note: NoteInit, other: NoteInit) => {
+    const [n, o] = [Note(note), Note(other)];
+    const f = CompareFn[fn];
+    return f(n.octave, o.octave);
   },
 };
 
@@ -102,35 +152,4 @@ export function simplify(name: NoteName, keepAccidental = true): NoteName {
 
 export function enharmonic(note: NoteName): NoteName {
   return simplify(note, false);
-}
-
-export const Transpose: CurriedNoteTransposable = curry(NoteTranspose);
-
-export const Distance: CurriedNoteDistance = curry(NoteDistance);
-
-export const Compare: CurriedNoteCompare = curry(NoteCompare);
-
-function NoteTranspose(by: Transposable = { value: 1, prop: 'midi' }, note?: NoteInit) {
-  const { value, prop } = by;
-  const { midi, frequency, pc, octave } = Note(note);
-
-  if (eq(prop, 'frequency')) return Note({ frequency: frequency + value });
-
-  if (eq(prop, 'octave')) return Note({ name: pc + (octave + value) });
-
-  return Note({ midi: midi + value });
-}
-
-function NoteDistance(note: NoteInit, other?: NoteInit, compare?: NoteComparableProp) {
-  const n = Note(note);
-  const o = Note(other);
-  return (o[compare] - n[compare]) as number;
-}
-
-function NoteCompare(f: NoteComparableFns, note: NoteInit, other: NoteInit, compare: NoteComparableProp) {
-  const CompareFn = { lt, leq, eq, neq, gt, geq };
-  const fn = CompareFn[f];
-  const first = Note(note);
-  const second = Note(other);
-  return fn(first[compare], second[compare]);
 }
