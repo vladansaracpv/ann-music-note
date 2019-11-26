@@ -4,30 +4,35 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  */
 
-import { BaseBoolean, BaseMaths, BaseRelations, BaseTypings } from 'ann-music-base';
-
-import {
-  NoteName,
-  NoteAccidental,
-  NoteMidi,
-  NoteFreq,
-  NoteLetter,
-  NoteOctave,
-  NoteChroma,
-  NoteInit,
-  NoteProp,
-  NoteComparableFns,
-} from './types';
-
-import { A_440, A4_KEY, REGEX, SHARPS, FLATS, KEYS, WHITE_KEYS, BLACK_KEYS } from './theory';
+import { BaseBoolean, BaseMaths, BaseRelations, BaseFunctional, BaseTypings } from 'ann-music-base';
 
 import { Note } from './properties';
+import { A4_KEY, A_440, BLACK_KEYS, FLATS, KEYS, REGEX, SHARPS, WHITE_KEYS } from './theory';
+import {
+  NoteProps,
+  NoteAccidental,
+  NoteChroma,
+  NoteComparableFns,
+  NoteFreq,
+  NoteInit,
+  NoteLetter,
+  NoteMidi,
+  NoteName,
+  NoteOctave,
+  NoteProp,
+  NoteTransposableProperty,
+  NoteMetricProperty,
+  CurriedTransposeFn,
+  CurriedDistanceFn,
+  CurriedCompareFn,
+} from './types';
 
 const { both, either } = BaseBoolean;
 const { inc, sub, div } = BaseMaths;
 const { eq, geq, gt, inSegment, isPositive, leq, lt, neq } = BaseRelations;
 const { isInteger, isNumber } = BaseTypings;
-const CompareFn = { lt, leq, eq, neq, gt, geq };
+const { curry } = BaseFunctional;
+const CompareFns = { lt, leq, eq, neq, gt, geq };
 
 export const Midi = {
   toFrequency: (midi: NoteMidi, tuning = A_440): NoteFreq => 2 ** div(sub(midi, A4_KEY), 12) * tuning,
@@ -70,62 +75,25 @@ export const Chroma = {
   },
 };
 
-export const Transpose = {
-  byMidi: (m: NoteMidi) => (note: NoteInit) => {
-    const n = Note(note);
-    return Note({ midi: n.midi + m });
-  },
-  byFrequency: (f: NoteFreq) => (note: NoteInit) => {
-    const n = Note(note);
-    return Note({ frequency: n.frequency + f });
-  },
-  byOctave: (o: NoteOctave) => (note: NoteInit) => {
-    const n = Note(note);
-    return Note({ name: n.pc + (n.octave + o) });
-  },
-};
+function TransposeFn(property: NoteTransposableProperty, amount: number, note: NoteInit): NoteProps {
+  const n = Note(note);
+  return Note({ [property]: n[property] + amount });
+}
 
-export const Distance = {
-  byMidi: (m: NoteMidi) => (note: NoteInit, other: NoteInit) => {
-    const [n, o] = [Note(note), Note(other)];
-    return o.midi - n.midi;
-  },
-  byFrequency: (f: NoteFreq) => (note: NoteInit, other: NoteInit) => {
-    const [n, o] = [Note(note), Note(other)];
-    return o.frequency - n.frequency;
-  },
-  byChroma: (c: NoteChroma) => (note: NoteInit, other: NoteInit) => {
-    const [n, o] = [Note(note), Note(other)];
-    return o.chroma - n.chroma;
-  },
-  byOctave: (o: NoteOctave) => (note: NoteInit, other: NoteInit) => {
-    const [n, o] = [Note(note), Note(other)];
-    return o.octave - n.octave;
-  },
-};
+function DistanceFn(property: NoteMetricProperty, note: NoteInit, other: NoteInit): number {
+  const [n, o] = [Note(note), Note(other)];
+  return o[property] - n[property];
+}
 
-export const Compare = {
-  byMidi: (fn: NoteComparableFns) => (note: NoteInit, other: NoteInit) => {
-    const [n, o] = [Note(note), Note(other)];
-    const f = CompareFn[fn];
-    return f(n.midi, o.midi);
-  },
-  byFrequency: (fn: NoteComparableFns) => (note: NoteInit, other: NoteInit) => {
-    const [n, o] = [Note(note), Note(other)];
-    const f = CompareFn[fn];
-    return f(n.frequency, o.frequency);
-  },
-  byChroma: (fn: NoteComparableFns) => (note: NoteInit, other: NoteInit) => {
-    const [n, o] = [Note(note), Note(other)];
-    const f = CompareFn[fn];
-    return f(n.chroma, o.chroma);
-  },
-  byOctave: (fn: NoteComparableFns) => (note: NoteInit, other: NoteInit) => {
-    const [n, o] = [Note(note), Note(other)];
-    const f = CompareFn[fn];
-    return f(n.octave, o.octave);
-  },
-};
+function CompareFn(fn: NoteComparableFns, property: NoteMetricProperty, note: NoteInit, other: NoteInit): boolean {
+  const [n, o] = [Note(note), Note(other)];
+  const f = CompareFns[fn];
+  return f(n[property], o[property]);
+}
+
+export const Transpose: CurriedTransposeFn = curry(TransposeFn);
+export const Distance: CurriedDistanceFn = curry(DistanceFn);
+export const Compare: CurriedCompareFn = curry(CompareFn);
 
 export const property = (prop: NoteProp) => (note: NoteInit) => Note(note)[prop];
 
@@ -140,11 +108,6 @@ export function simplify(name: NoteName, keepAccidental = true): NoteName {
 
   const useSharps = isSharp === keepAccidental;
 
-  /**
-   * Use sharps if:
-   * 1) It's already sharp && keepAccidental = true
-   * 2) It's not sharp && keepAccidental = false (don't use given accidental)
-   */
   const pc = either(SHARPS[chroma], FLATS[chroma], useSharps);
 
   return pc + octave;

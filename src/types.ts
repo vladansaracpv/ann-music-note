@@ -106,6 +106,27 @@ export type NoteProps = Readonly<{
 }>;
 
 export type NoteComparableFns = 'lt' | 'leq' | 'eq' | 'neq' | 'gt' | 'geq';
+export type NoteMetricProperty = 'midi' | 'frequency' | 'chroma' | 'octave';
+export type NoteTransposableProperty = 'midi' | 'frequency';
+
+export interface CurriedDistanceFn {
+  (property: NoteMetricProperty): (note: NoteInit, other: NoteInit) => number;
+  (property: NoteMetricProperty, note: NoteInit): (other: NoteInit) => number;
+  (property: NoteMetricProperty, note: NoteInit, other: NoteInit): number;
+}
+
+export interface CurriedTransposeFn {
+  (property: NoteTransposableProperty): (amount: number, note: NoteInit) => NoteProps;
+  (property: NoteTransposableProperty, amount: number): (note: NoteInit) => NoteProps;
+  (property: NoteTransposableProperty, amount: number, note: NoteInit): NoteProps;
+}
+
+export interface CurriedCompareFn {
+  (fn: NoteComparableFns): (property: NoteMetricProperty, note: NoteInit, other: NoteInit) => boolean;
+  (fn: NoteComparableFns, property: NoteMetricProperty): (note: NoteInit, other: NoteInit) => boolean;
+  (fn: NoteComparableFns, property: NoteMetricProperty, note: NoteInit): (other: NoteInit) => boolean;
+  (fn: NoteComparableFns, property: NoteMetricProperty, note: NoteInit, other: NoteInit): boolean;
+}
 
 /**
  * Note properties from which the Note object can be constructed
