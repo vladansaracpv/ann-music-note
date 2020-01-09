@@ -1,6 +1,6 @@
 {
   "name": "ann-music-note",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Note object methods for @ann-music-js project",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
