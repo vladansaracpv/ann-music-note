@@ -61,11 +61,6 @@ export type NoteMidi = number;
 export type NoteFreq = number;
 
 /**
- * Piano key color - black / white
- */
-export type NoteColor = string;
-
-/**
  * Note duration value. Can be: 1, 2, 4, 8, 16, 32, 64
  */
 export type NoteDuration = number;
@@ -83,8 +78,7 @@ export type NoteProp =
   | NotePC
   | NoteChroma
   | NoteMidi
-  | NoteFreq
-  | NoteColor;
+  | NoteFreq;
 
 /**
  * Note object. Collection of note properties.
@@ -101,7 +95,6 @@ export type NoteProps = Readonly<{
   chroma: NoteChroma;
   midi: NoteMidi;
   frequency: NoteFreq;
-  color: NoteColor;
   valid: boolean;
 }>;
 
@@ -138,3 +131,8 @@ export type NoteInit = Partial<{
   sharps?: boolean;
   tuning?: number;
 }>;
+
+export interface NAccidental {
+  type: string;
+  value: number;
+}

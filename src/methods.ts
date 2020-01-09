@@ -19,6 +19,7 @@ import {
   NoteMidi,
   NoteName,
   NoteOctave,
+  NoteAlteration,
   NoteProp,
   NoteTransposableProperty,
   NoteMetricProperty,
@@ -34,6 +35,11 @@ const { isInteger, isNumber } = BaseTypings;
 const { curry } = BaseFunctional;
 const CompareFns = { lt, leq, eq, neq, gt, geq };
 
+export const Accidental = {
+  toAlteration: (accidental: NoteAccidental) => accidental.length * (accidental[0] === 'b' ? -1 : 1),
+  fromAlteration: (alteration: NoteAlteration) => (alteration <= 0 ? 'b'.repeat(alteration) : '#'.repeat(alteration)),
+};
+
 export const Midi = {
   toFrequency: (midi: NoteMidi, tuning = A_440): NoteFreq => 2 ** div(sub(midi, A4_KEY), 12) * tuning,
   toOctaves: (midi: NoteMidi) => Math.floor(midi / 12) - 1,
@@ -41,10 +47,6 @@ export const Midi = {
 
 export const Frequency = {
   toMidi: (f: NoteFreq, tuning = A_440) => Math.ceil(12 * Math.log2(f / tuning) + A4_KEY),
-};
-
-export const Accidental = {
-  toAlteration: (accidental: NoteAccidental) => accidental.length * (accidental[0] === 'b' ? -1 : 1),
 };
 
 export const Letter = {
@@ -60,40 +62,10 @@ export const Octave = {
 export const Validators = {
   isChroma: (chroma: NoteChroma): boolean => both(isInteger(chroma), inSegment(0, 11, +chroma)),
   isFrequency: (freq: any): freq is NoteFreq => isNumber(freq) && gt(freq, 0),
-  isKey: (key: string): boolean => KEYS.includes(key),
   isMidi: (midi: any): midi is NoteMidi => both(isInteger(midi), inSegment(0, 135, +midi)),
-  isName: (name: any): name is NoteName => REGEX.test(name as string) === true,
+  isName: (name: any): name is NoteName => REGEX.test(name) === true,
   isNote: (note: any): boolean => Note(note).valid,
 };
-
-export const Chroma = {
-  isWhite(chroma: NoteChroma) {
-    return WHITE_KEYS.includes(chroma);
-  },
-  isBlack(chroma: NoteChroma) {
-    return BLACK_KEYS.includes(chroma);
-  },
-};
-
-function TransposeFn(property: NoteTransposableProperty, amount: number, note: NoteInit): NoteProps {
-  const n = Note(note);
-  return Note({ [property]: n[property] + amount });
-}
-
-function DistanceFn(property: NoteMetricProperty, note: NoteInit, other: NoteInit): number {
-  const [n, o] = [Note(note), Note(other)];
-  return o[property] - n[property];
-}
-
-function CompareFn(fn: NoteComparableFns, property: NoteMetricProperty, note: NoteInit, other: NoteInit): boolean {
-  const [n, o] = [Note(note), Note(other)];
-  const f = CompareFns[fn];
-  return f(n[property], o[property]);
-}
-
-export const Transpose: CurriedTransposeFn = curry(TransposeFn);
-export const Distance: CurriedDistanceFn = curry(DistanceFn);
-export const Compare: CurriedCompareFn = curry(CompareFn);
 
 export const property = (prop: NoteProp) => (note: NoteInit) => Note(note)[prop];
 
@@ -116,3 +88,23 @@ export function simplify(name: NoteName, keepAccidental = true): NoteName {
 export function enharmonic(note: NoteName): NoteName {
   return simplify(note, false);
 }
+
+function TransposeFn(property: NoteTransposableProperty, amount: number, note: NoteInit): NoteProps {
+  const n = Note(note);
+  return Note({ [property]: n[property] + amount });
+}
+
+function DistanceFn(property: NoteMetricProperty, note: NoteInit, other: NoteInit): number {
+  const [n, o] = [Note(note), Note(other)];
+  return o[property] - n[property];
+}
+
+function CompareFn(fn: NoteComparableFns, property: NoteMetricProperty, note: NoteInit, other: NoteInit): boolean {
+  const [n, o] = [Note(note), Note(other)];
+  const f = CompareFns[fn];
+  return f(n[property], o[property]);
+}
+
+export const Transpose: CurriedTransposeFn = curry(TransposeFn);
+export const Distance: CurriedDistanceFn = curry(DistanceFn);
+export const Compare: CurriedCompareFn = curry(CompareFn);
